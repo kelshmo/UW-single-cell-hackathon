@@ -210,6 +210,25 @@ p6<-plot_cells(cds_uw, color_cells_by="cluster",cell_size=.1,label_cell_groups=0
 grid.arrange(arrangeGrob(p1,p6, ncol=2),arrangeGrob(p3,p2,ncol=2),p4, heights=c(2,2,4), ncol=1)
 #dev.off()
 
+# return buckets of clusters
+table(cds_uw@clusters@listData$UMAP$partitions)
+
+cds_test <- cds_uw[,cds_uw@clusters$UMAP$partitions == 10]
+dim(cds_test)
+# shrinking gene matrix in order to improve test compute time
+
+# differential expression analysis of individual cluster population
+eprs_model <- monocle3::fit_models(cds_test, 
+                                   "~ePRS")
+# example
+#eprs_model$model_summary$RP11.34P13.7 per gene model fit, extract p-value and test statistic for each gene
+
+# correction for multiple comparison
+multiple_comparison <- monocle3::coefifcient_table(eprs_model)
+
+# network analysis - https://cole-trapnell-lab.github.io/monocle3/docs/differential/#gene-modules
+gene_module_df <- find_gene_modules(cds_subset, resolution=1e-2)
+
 #label marker genes, defined by mathys et al
 genes<-c()
 for (gene in unique(c(as.vector(mathy_marker_genes$gene.name),c("SYT1","SNAP25","GRIN1","GAD1","GAD2","SLC17A7","CAMK2A","NRGN","AQP4",
