@@ -67,7 +67,7 @@ colnames(gene_metadata)[2] <- "gene_short_name"
 #need to make duplicated gene short names unique
 gene_metadata$gene_short_name <- make.names(gene_metadata$gene_short_name, unique=TRUE)
 
-#each rowname is a gene, from the features file:
+#each rowname is a gene, from the features file:#all rows need to match between cell metadata and gene metadata
 rownames(dat_6672) <- gene_metadata[,2]
 rownames(dat_6687) <- gene_metadata[,2]
 rownames(dat_6726) <- gene_metadata[,2]
@@ -121,8 +121,8 @@ names(metadata)[names(metadata) == "Apo E"] <- "ApoE"
 metadata$ids <- as.factor(metadata$ids)
 head(metadata)
 
-#this count threshold can be changed
-counts <- dat[rowSums(dat != 0) >= 250,]
+#this count threshold can be changed; remove genes that have fewer than 2 cells
+counts <- dat[rowSums(dat != 0) >= 2,]
 dim(counts)
 
 #Make the cell_data_set (CDS) object for monocle:
@@ -182,7 +182,7 @@ cds_uw <- new_cell_data_set(counts,
 ### preprocessing and reduce dimensionality
 ### preprocessing includes library size normalization and regressing out pmi
 ### this takes a while
-cds_uw = preprocess_cds(cds_uw, num_dim = 30,method="PCA", norm_method="log", residual_model_formula_str="~PMI")
+cds_uw = preprocess_cds(cds_uw, num_dim = 30,method="PCA", norm_method="log", residual_model_formula_str="~PMI") #~PMI + <Batch> + SEX
 cds_uw = reduce_dimension(cds_uw)
 cds_uw = cluster_cells(cds_uw)
 plot_pc_variance_explained(cds_uw)
@@ -191,17 +191,17 @@ cds_uw$Diagnosis = cds_uw$Clinical.DX
 cds_uw$Sex = cds_uw$SEX
 cds_uw$Samples = cds_uw$ids
 head(cds_uw$Sex)
-
+#partition is monocles determination of cell types - naive clustering
 p1<-plot_cells(cds_uw, color_cells_by="partition",cell_size=.001,label_cell_groups=0,show_trajectory_graph=FALSE)+theme(
   legend.title = element_text(size = 10),
   legend.text = element_text(size = 10))+theme(legend.position = "none")
 p2<-plot_cells(cds_uw, color_cells_by="Sex",cell_size=.001,label_cell_groups=0,show_trajectory_graph=FALSE)+theme(
   legend.title = element_text(size = 10),
   legend.text = element_text(size = 10))
-p3<-plot_cells(cds_uw, color_cells_by="Diagnosis",cell_size=.001,label_cell_groups=0,show_trajectory_graph=FALSE)+theme(
+p3<-plot_cells(cds_uw, color_cells_by="Diagnosis",cell_size=.001,label_cell_groups=0,show_trajectory_graph=FALSE, alpha = 0.2)+theme(
   legend.title = element_text(size = 10),
   legend.text = element_text(size = 8))
-p4<-plot_cells(cds_uw, color_cells_by="Samples",cell_size=.001,label_cell_groups=0,show_trajectory_graph=FALSE)
+p4<-plot_cells(cds_uw, color_cells_by="Samples",cell_size=.001,label_cell_groups=0,show_trajectory_graph=FALSE, alpha = 0.2)
 p6<-plot_cells(cds_uw, color_cells_by="cluster",cell_size=.1,label_cell_groups=0,show_trajectory_graph=FALSE)+theme(
   legend.title = element_text(size = 10),
   legend.text = element_text(size = 7),legend.key.size = unit(.5, "cm"),
@@ -219,12 +219,12 @@ for (gene in unique(c(as.vector(mathy_marker_genes$gene.name),c("SYT1","SNAP25",
   }
 }
 length(genes)
-
+#MONOCOLE workflow
 cds_subset = cds_uw[genes,]
 cds_subset = preprocess_cds(cds_subset, num_dim = 30,method="PCA",residual_model_formula_str="~PMI",norm_method="size_only")
 cds_subset = reduce_dimension(cds_subset)
-cds_subset = cluster_cells(cds_subset)
-
+cds_subset = cluster_cells(cds_subset) #identifying specific cells
+#learn_graph() step is missing.
 p1<-plot_cells(cds_subset, color_cells_by="partition",cell_size=.001,label_cell_groups=0,show_trajectory_graph=FALSE)+theme(
   legend.title = element_text(size = 10),
   legend.text = element_text(size = 10))+theme(legend.position = "none")
@@ -293,7 +293,7 @@ cds_subset$Diagnosis[cds_subset$ids!=6672]='AD'
 
 
 #####UNTESTED CODE FROM REBECCA--STILL WORKING OUT ISSUES######
-
+cds_subset -> cds_sync
 ## Identify Mic1 subcluster in UW data
 #l = c(l,as.vector(mathy_marker_genes$gene.name[mathy_marker_genes$subpopulation=='Mic0']))
 l = as.vector(mathy_marker_genes$gene.name[mathy_marker_genes$subpopulation=='Mic1'])
@@ -306,7 +306,7 @@ for (gene in l){
     inds = c(inds,which(rownames(cds_uw)==gene))
   }
 }
-cds_subset <- cds_uw[inds,cds_uw$broad.cell.type=='Mic']
+cds_subset<-cds_subset[inds, cds_subset$broad.cell.type=='Mic']
 cds_subset <- preprocess_cds(cds_subset, num_dim = 30,residual_model_formula_str="~PMI")
 cds_subset = reduce_dimension(cds_subset)
 cds_subset = cluster_cells(cds_subset)
